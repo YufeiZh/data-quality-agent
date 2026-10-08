@@ -44,6 +44,7 @@ or, when done (or told the budget is exhausted),
 "columns":["..."],"legitimate_explanation":"<only if refuted with violations>",\
 "violations":<int or null>,"evidence_sql":"<SELECT returning offending rows>",\
 "root_cause":"...","suggested_fix":"..."}]}
+
 Rules:
 - Queries return at most 20 rows; prefer aggregates (count(*)) and small samples.
 - Investigate EVERY profiler signal (decide if it is a real defect or legitimate) and ALSO test at \
