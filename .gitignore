@@ -14,3 +14,5 @@ data/raw/*
 !data/raw/.gitkeep
 
 DATA_QUALITY_AGENT_MVP.md
+# local agent instructions
+CLAUDE.md
