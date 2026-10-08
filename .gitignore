@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+.ruff_cache/
+dist/
+*.duckdb
+*.db
+runs/*
+!runs/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+
+DATA_QUALITY_AGENT_MVP.md
