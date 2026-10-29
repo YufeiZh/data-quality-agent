@@ -111,6 +111,31 @@ def test_conclude_gate_pushes_back_then_allows(tmp_path):
     assert "customer_id" in llm.seen[1][-1]["content"]
 
 
+def test_whole_row_query_does_not_cover_flagged_columns():
+    from dq_agent.agent import _targeted_columns
+
+    cols = {"order_id", "customer_id", "weight_kg", "status", "quantity"}
+    dup = "SELECT count(*) FROM t GROUP BY order_id, customer_id, weight_kg, status, quantity"
+    assert _targeted_columns(dup, cols) == set()
+    assert _targeted_columns("SELECT count(*) FROM t WHERE weight_kg > 100", cols) == {"weight_kg"}
+    key = "SELECT order_id FROM t GROUP BY order_id HAVING count(*) > 1"
+    assert _targeted_columns(key, cols) == {"order_id"}
+    assert _targeted_columns("not sql at all (", cols) == set()
+
+
+def test_gate_not_fooled_by_all_column_group_by(tmp_path):
+    csv = generate(tmp_path)
+    cols = ("order_id, customer_id, order_date, ship_date, quantity, unit_price, total_amount, "
+            "weight_kg, currency, status")  # fmt: skip
+    dup = q(f"SELECT count(*) FROM (SELECT 1 FROM t GROUP BY {cols} HAVING count(*) > 1)")
+    done = '{"action":"conclude","findings":[]}'
+    llm = FakeLLM([dup, done])
+    cfg = Settings(runs_dir=str(tmp_path / "r"), min_queries=0, llm_cache=False, max_pushbacks=1)
+    run(csv, llm, cfg)
+    pushback = llm.seen[-1][-1]["content"]
+    assert "Not done yet" in pushback and "weight_kg" in pushback
+
+
 def test_unjustified_refutation_is_downgraded(tmp_path):
     csv = generate(tmp_path)
     sql = "SELECT * FROM t WHERE ship_date < order_date"

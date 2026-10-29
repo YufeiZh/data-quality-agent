@@ -261,14 +261,29 @@ def profile_signals(state: State) -> list[dict]:
 
 def _coverage_gap(state: State, signals: list[dict], s: Settings) -> str | None:
     """Deterministic gate: why the agent may not conclude yet (None = free to conclude)."""
-    sqls = " ".join(state["queried"])
-    missing = sorted({c for sg in signals for c in sg["columns"] if c.lower() not in sqls})
+    all_cols = {c["name"].lower() for c in state["profile"]["columns"]}
+    touched = set().union(*(_targeted_columns(q, all_cols) for q in state["queried"]))
+    missing = sorted({c for sg in signals for c in sg["columns"] if c.lower() not in touched})
     parts = []
     if len(state["queried"]) < s.min_queries:
         parts.append(f"run at least {s.min_queries} queries (so far {len(state['queried'])}).")
     if missing:
         parts.append(f"no query yet touches profiler-flagged columns: {', '.join(missing)}.")
     return " ".join(parts) or None
+
+
+def _targeted_columns(sql: str, all_cols: set[str]) -> set[str]:
+    """Columns a query is actually about.
+
+    A whole-row query (references >= 80% of the table's columns, e.g. a duplicate-row GROUP BY
+    over every column) says nothing about any single column, so it targets none.
+    """
+    try:
+        tree = sqlglot.parse_one(sql.strip().rstrip(";"), read="duckdb")
+    except sqlglot.errors.ParseError:
+        return set()
+    refs = {c.name.lower() for c in tree.find_all(exp.Column)} & all_cols
+    return set() if len(refs) >= 0.8 * len(all_cols) else refs
 
 
 def _recount(ro: ReadOnlyQuery, sql: str | None) -> int | None:
